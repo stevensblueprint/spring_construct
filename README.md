@@ -1,8 +1,15 @@
-# Welcome to your CDK TypeScript project
+# Spring Boot + Postgres CDK Template
+Deploy a Spring Boot + Postgres application to AWS. 
 
-This is a blank project for CDK development with TypeScript.
+## Deployment
+Create an `ECR` repository to push the Docker images
+```bash
+aws ecr create-repository --repository-name {project_name} --image-scanning-configuration scanOnPush=true --region {region}
+```
 
-The `cdk.json` file tells the CDK Toolkit how to execute your app.
+Fill out the configuration file under `config/config.yaml`. 
+Add your `sql` scripts to initialize the db (add tables, and sample data) under `db_scripts/*.sql`.
+Run `cdk deploy`.
 
 ## Useful commands
 
