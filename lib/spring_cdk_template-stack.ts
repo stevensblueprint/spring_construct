@@ -25,14 +25,10 @@ export class SpringCdkTemplateStack extends cdk.Stack {
   ) {
     super(scope, id, props);
 
-    const repository = new ecr.Repository(
+    const repository = ecr.Repository.fromRepositoryName(
       this,
       `Repository-${props.stackName}`,
-      {
-        repositoryName: props.ecrRepository,
-        removalPolicy: cdk.RemovalPolicy.DESTROY,
-        imageScanOnPush: true,
-      }
+      props.ecrRepository
     );
 
     const scriptsBucket = new s3.Bucket(this, "DatabaseScriptsBucket", {
