@@ -6,6 +6,9 @@ import { devProps, prodProps } from "../config";
 const app = new cdk.App();
 const envConfigs = [devProps, prodProps];
 envConfigs.forEach((envConfig) => {
+  if (!envConfig.shouldDeploy) {
+    return;
+  }
   const stackName = `${envConfig.stackName}-stack`;
   console.log(`Creating stack: ${stackName}`);
   new SpringCdkTemplateStack(app, stackName, {

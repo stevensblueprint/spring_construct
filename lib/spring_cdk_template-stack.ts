@@ -76,7 +76,7 @@ export class SpringCdkTemplateStack extends cdk.Stack {
         subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS,
       },
       instanceType: ec2.InstanceType.of(
-        ec2.InstanceClass.T4G,
+        ec2.InstanceClass.T3,
         ec2.InstanceSize.MICRO
       ),
       machineImage: ec2.MachineImage.latestAmazonLinux2(),
