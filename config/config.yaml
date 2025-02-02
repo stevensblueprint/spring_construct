@@ -1,0 +1,15 @@
+dev:
+  shouldDeploy: false # Should the stack be deployed
+  stackName: "" # Name of the stack
+  vpcName: "" # Name of the VPC
+  pgSecurityGroup: "" # Security group name for the Postgres database
+  dbName: "" # Name of the database
+  ecrRepository: "" # Name of the ECR repository
+
+prod:
+  shouldDeploy: true # Should the stack be deployed
+  stackName: "" # Name of the stack
+  vpcName: "" # Name of the VPC
+  pgSecurityGroup: "" # Security group name for the Postgres database
+  dbName: "" # Name of the database
+  ecrRepository: "" # Name of the ECR repository
