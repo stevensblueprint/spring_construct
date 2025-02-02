@@ -84,24 +84,45 @@ export class SpringCdkTemplateStack extends cdk.Stack {
     });
 
     pgInstance.userData.addCommands(
+      // System updates and installations
       "yum update -y",
       "yum install -y postgresql postgresql-server postgresql-contrib aws-cli",
+
+      // Initialize PostgreSQL database
       "postgresql-setup initdb",
 
+      // Configure PostgreSQL to listen on all addresses
       "sed -i \"s/#listen_addresses = 'localhost'/listen_addresses = '*'/\" /var/lib/pgsql/data/postgresql.conf",
+
+      // Enable SSL for security
+      'sed -i "s/#ssl = off/ssl = on/" /var/lib/pgsql/data/postgresql.conf',
+
+      // Update authentication method from ident to md5
       'sed -i "s/ident/md5/g" /var/lib/pgsql/data/pg_hba.conf',
 
+      // Add VPC CIDR access rules to pg_hba.conf
+      `echo "# Allow connections from VPC CIDR" >> /var/lib/pgsql/data/pg_hba.conf`,
+      `echo "host all all ${vpc.vpcCidrBlock} md5" >> /var/lib/pgsql/data/pg_hba.conf`,
+
+      // Start and enable PostgreSQL service
       "systemctl start postgresql",
       "systemctl enable postgresql",
 
+      // Copy database scripts from S3
       `aws s3 cp s3://${scriptsBucket.bucketName}/ /tmp/db-scripts --recursive`,
       "chmod +x /tmp/db-scripts/*.sql",
 
+      // Set PostgreSQL password from Secrets Manager
       `export PGPASSWORD=$(aws secretsmanager get-secret-value --secret-id ${pgDBcreds.secretArn} --query SecretString --output text | jq -r .password)`,
 
+      // Create postgres user password
+      `sudo -u postgres psql -c "ALTER USER postgres WITH PASSWORD '$PGPASSWORD';"`,
+
+      // Execute all SQL scripts
       "for script in /tmp/db-scripts/*.sql; do",
       '  psql -U postgres -d postgres -f "$script"',
-      "done"
+      "done",
+      "systemctl restart postgresql"
     );
 
     const cluster = new ecs.Cluster(this, `Cluster-${props.stackName}`, {
