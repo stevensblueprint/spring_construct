@@ -16,6 +16,7 @@ interface SpringCdkTemplateStackProps extends cdk.StackProps {
   pgSecurityGroup: string;
   dbName: string;
   ecrRepository: string;
+  keyName: string;
 }
 export class SpringCdkTemplateStack extends cdk.Stack {
   constructor(
@@ -53,6 +54,12 @@ export class SpringCdkTemplateStack extends cdk.Stack {
     });
 
     pgSecurityGroup.addIngressRule(
+      ec2.Peer.anyIpv4(),
+      ec2.Port.tcp(22),
+      "Allow SSH access from anywhere"
+    );
+
+    pgSecurityGroup.addIngressRule(
       ec2.Peer.ipv4(vpc.vpcCidrBlock),
       ec2.Port.tcp(5432),
       "Allow inbound traffic from VPC"
@@ -73,7 +80,7 @@ export class SpringCdkTemplateStack extends cdk.Stack {
     const pgInstance = new ec2.Instance(this, `DB-${props.stackName}`, {
       vpc,
       vpcSubnets: {
-        subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS,
+        subnetType: ec2.SubnetType.PUBLIC,
       },
       instanceType: ec2.InstanceType.of(
         ec2.InstanceClass.T3,
@@ -81,6 +88,9 @@ export class SpringCdkTemplateStack extends cdk.Stack {
       ),
       machineImage: ec2.MachineImage.latestAmazonLinux2(),
       securityGroup: pgSecurityGroup,
+      requireImdsv2: true,
+      associatePublicIpAddress: true,
+      keyName: props.keyName,
     });
 
     pgInstance.userData.addCommands(
@@ -93,9 +103,6 @@ export class SpringCdkTemplateStack extends cdk.Stack {
 
       // Configure PostgreSQL to listen on all addresses
       "sed -i \"s/#listen_addresses = 'localhost'/listen_addresses = '*'/\" /var/lib/pgsql/data/postgresql.conf",
-
-      // Enable SSL for security
-      'sed -i "s/#ssl = off/ssl = on/" /var/lib/pgsql/data/postgresql.conf',
 
       // Update authentication method from ident to md5
       'sed -i "s/ident/md5/g" /var/lib/pgsql/data/pg_hba.conf',
@@ -176,6 +183,10 @@ export class SpringCdkTemplateStack extends cdk.Stack {
       iam.ManagedPolicy.fromAwsManagedPolicyName("SecretsManagerReadWrite")
     );
     scriptsBucket.grantRead(pgInstance.role);
+
+    new cdk.CfnOutput(this, "InstancePublicIP", {
+      value: pgInstance.instancePublicIp,
+    });
 
     new cdk.CfnOutput(this, "LoadBalancerDNS", {
       value: sbService.loadBalancer.loadBalancerDnsName,

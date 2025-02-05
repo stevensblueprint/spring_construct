@@ -8,8 +8,9 @@ dev:
 
 prod:
   shouldDeploy: true # Should the stack be deployed
-  stackName: "" # Name of the stack
-  vpcName: "" # Name of the VPC
-  pgSecurityGroup: "" # Security group name for the Postgres database
-  dbName: "" # Name of the database
-  ecrRepository: "" # Name of the ECR repository
+  stackName: "blueprint-admin" # Name of the stack
+  vpcName: "blueprint-admin_vpc" # Name of the VPC
+  pgSecurityGroup: "blueprint-admin-sg" # Security group name for the Postgres database
+  dbName: "postgres" # Name of the database
+  ecrRepository: "blueprint_admin" # Name of the ECR repository
+  key: blueprint

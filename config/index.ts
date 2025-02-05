@@ -15,6 +15,7 @@ function getEnvironmentConfig(environmentName: string) {
     pgSecurityGroup: environment.pgSecurityGroup,
     dbName: environment.dbName,
     ecrRepository: environment.ecrRepository,
+    keyName: environment.keyName,
   };
 }
 
