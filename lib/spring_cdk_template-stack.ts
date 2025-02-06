@@ -73,7 +73,7 @@ export class SpringCdkTemplateStack extends cdk.Stack {
         generateSecretString: {
           secretStringTemplate: JSON.stringify({ username: "postgres" }),
           generateStringKey: "password",
-          excludeCharacters: '"@/\\',
+          excludeCharacters: "\"@/\\'*{}[]()&^%$#!+",
         },
       }
     );
@@ -150,6 +150,7 @@ export class SpringCdkTemplateStack extends cdk.Stack {
         desiredCount: 1,
         taskImageOptions: {
           image: image,
+          containerPort: 8080,
           environment: {
             SPRING_DATASOURCE_URL: `jdbc:postgresql://${pgInstance.instancePrivateDnsName}:5432/${props.dbName}`,
             SPRING_DATASOURCE_USERNAME: "postgres",
@@ -171,8 +172,18 @@ export class SpringCdkTemplateStack extends cdk.Stack {
           type: ecs.DeploymentControllerType.ECS,
         },
         circuitBreaker: { rollback: true },
+        healthCheckGracePeriod: cdk.Duration.seconds(200),
       }
     );
+
+    sbService.targetGroup.configureHealthCheck({
+      path: "/actuator/health",
+      port: "8080",
+      healthyThresholdCount: 2,
+      unhealthyThresholdCount: 3,
+      timeout: cdk.Duration.seconds(10),
+      interval: cdk.Duration.seconds(30),
+    });
 
     repository.grantPull(sbService.taskDefinition.executionRole!);
 
