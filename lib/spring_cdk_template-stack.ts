@@ -96,7 +96,7 @@ export class SpringCdkTemplateStack extends cdk.Stack {
     pgInstance.userData.addCommands(
       // System updates and installations
       "yum update -y",
-      "yum install -y postgresql postgresql-server postgresql-contrib aws-cli",
+      "yum install -y postgresql postgresql-server postgresql-contrib aws-cli jq",
 
       // Initialize PostgreSQL database
       "postgresql-setup initdb",
