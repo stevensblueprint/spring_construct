@@ -16,6 +16,7 @@ function getEnvironmentConfig(environmentName: string) {
     dbName: environment.dbName,
     ecrRepository: environment.ecrRepository,
     keyName: environment.keyName,
+    region: environment.region,
   };
 }
 

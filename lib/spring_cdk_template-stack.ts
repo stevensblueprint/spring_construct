@@ -17,6 +17,7 @@ interface SpringCdkTemplateStackProps extends cdk.StackProps {
   dbName: string;
   ecrRepository: string;
   keyName: string;
+  region: string;
 }
 export class SpringCdkTemplateStack extends cdk.Stack {
   constructor(
@@ -120,7 +121,7 @@ export class SpringCdkTemplateStack extends cdk.Stack {
       "chmod +x /tmp/db-scripts/*.sql",
 
       // Set PostgreSQL password from Secrets Manager
-      `export PGPASSWORD=$(aws secretsmanager get-secret-value --secret-id ${pgDBcreds.secretArn} --query SecretString --output text | jq -r .password)`,
+      `export PGPASSWORD=$(aws secretsmanager get-secret-value --secret-id ${pgDBcreds.secretArn} --region ${props.region} --query SecretString --output text | jq -r .password)`,
 
       // Create postgres user password
       `sudo -u postgres psql -c "ALTER USER postgres WITH PASSWORD '$PGPASSWORD';"`,

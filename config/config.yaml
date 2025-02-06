@@ -14,3 +14,4 @@ prod:
   dbName: "postgres" # Name of the database
   ecrRepository: "blueprint_admin" # Name of the ECR repository
   key: blueprint
+  region: us-east-1
