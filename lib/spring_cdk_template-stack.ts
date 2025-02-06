@@ -70,7 +70,7 @@ export class SpringCdkTemplateStack extends cdk.Stack {
       `pgCres${props.stackName}`,
       {
         generateSecretString: {
-          secretStringTemplate: JSON.stringify({ usernmae: "postgres" }),
+          secretStringTemplate: JSON.stringify({ username: "postgres" }),
           generateStringKey: "password",
           excludeCharacters: '"@/\\',
         },
@@ -154,8 +154,10 @@ export class SpringCdkTemplateStack extends cdk.Stack {
             SPRING_DATASOURCE_USERNAME: "postgres",
           },
           secrets: {
-            SPRING_DATASOURCE_PASSWORD:
-              ecs.Secret.fromSecretsManager(pgDBcreds),
+            SPRING_DATASOURCE_PASSWORD: ecs.Secret.fromSecretsManager(
+              pgDBcreds,
+              "password"
+            ),
           },
         },
         capacityProviderStrategies: [
