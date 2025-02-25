@@ -96,25 +96,26 @@ export class SpringCdkTemplateStack extends cdk.Stack {
 
     pgInstance.userData.addCommands(
       // System updates and installations
-      "yum update -y",
-      "yum install -y postgresql postgresql-server postgresql-contrib aws-cli jq",
+      "sudo yum update -y",
+      "sudo yum install postgresql15.x86_64 postgresql15-server aws-cli jq -y",
 
       // Initialize PostgreSQL database
-      "postgresql-setup initdb",
+      "sudo postgresql-setup --initdb",
 
       // Configure PostgreSQL to listen on all addresses
-      "sed -i \"s/#listen_addresses = 'localhost'/listen_addresses = '*'/\" /var/lib/pgsql/data/postgresql.conf",
+      "sudo sed -i \"s/#listen_addresses = 'localhost'/listen_addresses = '*'/\" /var/lib/pgsql/data/postgresql.conf",
 
       // Update authentication method from ident to md5
-      'sed -i "s/ident/md5/g" /var/lib/pgsql/data/pg_hba.conf',
+      'sudo sed -i "s/ident/md5/g" /var/lib/pgsql/data/pg_hba.conf',
 
       // Add VPC CIDR access rules to pg_hba.conf
-      `echo "# Allow connections from VPC CIDR" >> /var/lib/pgsql/data/pg_hba.conf`,
-      `echo "host all all ${vpc.vpcCidrBlock} md5" >> /var/lib/pgsql/data/pg_hba.conf`,
+      `echo "# Allow connections from VPC CIDR" | sudo tee -a /var/lib/pgsql/data/pg_hba.conf`,
+      `echo "host all all ${vpc.vpcCidrBlock} md5" | sudo tee -a /var/lib/pgsql/data/pg_hba.conf`,
 
       // Start and enable PostgreSQL service
-      "systemctl start postgresql",
-      "systemctl enable postgresql",
+      "sudo systemctl start postgresql",
+      "sudo systemctl enable postgresql",
+      "sudo systemctl status postgresql",
 
       // Copy database scripts from S3
       `aws s3 cp s3://${scriptsBucket.bucketName}/ /tmp/db-scripts --recursive`,
@@ -122,14 +123,10 @@ export class SpringCdkTemplateStack extends cdk.Stack {
 
       // Set PostgreSQL password from Secrets Manager
       `export PGPASSWORD=$(aws secretsmanager get-secret-value --secret-id ${pgDBcreds.secretArn} --region ${props.region} --query SecretString --output text | jq -r .password)`,
+      "sudo -u postgres psql -f /tmp/db-scripts/init.sql",
 
       // Create postgres user password
       `sudo -u postgres psql -c "ALTER USER postgres WITH PASSWORD '$PGPASSWORD';"`,
-
-      // Execute all SQL scripts
-      "for script in /tmp/db-scripts/*.sql; do",
-      '  psql -U postgres -d postgres -f "$script"',
-      "done",
       "systemctl restart postgresql"
     );
 
