@@ -87,7 +87,7 @@ export class SpringCdkTemplateStack extends cdk.Stack {
         ec2.InstanceClass.T3,
         ec2.InstanceSize.MICRO
       ),
-      machineImage: ec2.MachineImage.latestAmazonLinux2(),
+      machineImage: ec2.MachineImage.latestAmazonLinux2023(),
       securityGroup: pgSecurityGroup,
       requireImdsv2: true,
       associatePublicIpAddress: true,
