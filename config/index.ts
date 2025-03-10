@@ -17,6 +17,12 @@ function getEnvironmentConfig(environmentName: string) {
     ecrRepository: environment.ecrRepository,
     keyName: environment.keyName,
     region: environment.region,
+    githubOwner: environment.githubOwner,
+    githubRepo: environment.githubRepo,
+    githubBranch: environment.githubBranch,
+    githubAccessTokenSecret: environment.githubAccessTokenSecret,
+    pipelineContainerName: environment.pipelineContainerName,
+    pipelineName: environment.pipelineName,
   };
 }
 

@@ -7,6 +7,9 @@ import * as secretsmanager from "aws-cdk-lib/aws-secretsmanager";
 import * as s3 from "aws-cdk-lib/aws-s3";
 import * as s3deploy from "aws-cdk-lib/aws-s3-deployment";
 import * as ecr from "aws-cdk-lib/aws-ecr";
+import * as codepipeline from "aws-cdk-lib/aws-codepipeline";
+import * as codepipeline_actions from "aws-cdk-lib/aws-codepipeline-actions";
+import * as codebuild from "aws-cdk-lib/aws-codebuild";
 import { Construct } from "constructs";
 import path = require("path");
 
@@ -18,6 +21,12 @@ interface SpringCdkTemplateStackProps extends cdk.StackProps {
   ecrRepository: string;
   keyName: string;
   region: string;
+  githubOwner: string;
+  githubRepo: string;
+  githubBranch?: string;
+  githubAccessTokenSecret: string;
+  pipelineContainerName: string;
+  pipelineName?: string;
 }
 export class SpringCdkTemplateStack extends cdk.Stack {
   constructor(
@@ -33,6 +42,7 @@ export class SpringCdkTemplateStack extends cdk.Stack {
       props.ecrRepository
     );
 
+    // ----- S3 Bucket for Database Scripts -----
     const scriptsBucket = new s3.Bucket(this, "DatabaseScriptsBucket", {
       removalPolicy: cdk.RemovalPolicy.DESTROY,
       autoDeleteObjects: true,
@@ -43,11 +53,13 @@ export class SpringCdkTemplateStack extends cdk.Stack {
       destinationBucket: scriptsBucket,
     });
 
+    // ----- VPC -----
     const vpc = new ec2.Vpc(this, props.vpcName, {
       maxAzs: 2,
       natGateways: 1,
     });
 
+    // ----- PostgreSQL Security Group -----
     const pgSecurityGroup = new ec2.SecurityGroup(this, props.pgSecurityGroup, {
       vpc,
       description: "Security group for PostgreSQL server",
@@ -66,6 +78,7 @@ export class SpringCdkTemplateStack extends cdk.Stack {
       "Allow inbound traffic from VPC"
     );
 
+    // ----- PostgreSQL Credentials (Secrets Manager) -----
     const pgDBcreds = new secretsmanager.Secret(
       this,
       `pgCres${props.stackName}`,
@@ -78,6 +91,7 @@ export class SpringCdkTemplateStack extends cdk.Stack {
       }
     );
 
+    // ----- PostgreSQL Instance -----
     const pgInstance = new ec2.Instance(this, `DB-${props.stackName}`, {
       vpc,
       vpcSubnets: {
@@ -130,6 +144,7 @@ export class SpringCdkTemplateStack extends cdk.Stack {
       "systemctl restart postgresql"
     );
 
+    // ----- ECS Cluster & Service -----
     const cluster = new ecs.Cluster(this, `Cluster-${props.stackName}`, {
       vpc,
       enableFargateCapacityProviders: true,
@@ -148,6 +163,7 @@ export class SpringCdkTemplateStack extends cdk.Stack {
         taskImageOptions: {
           image: image,
           containerPort: 8080,
+          containerName: props.pipelineContainerName,
           environment: {
             SPRING_DATASOURCE_URL: `jdbc:postgresql://${pgInstance.instancePrivateDnsName}:5432/${props.dbName}`,
             SPRING_DATASOURCE_USERNAME: "postgres",
@@ -205,6 +221,105 @@ export class SpringCdkTemplateStack extends cdk.Stack {
 
     new cdk.CfnOutput(this, "EcrRepositoryUri", {
       value: repository.repositoryUri,
+    });
+
+    // ----- CodePipeline for Continuous Deployment -----
+    const sourceOutput = new codepipeline.Artifact();
+    const pipelineBuildOutput = new codepipeline.Artifact();
+
+    // Github source action
+    const sourceAction = new codepipeline_actions.GitHubSourceAction({
+      actionName: "GitHub_Source",
+      owner: props.githubOwner,
+      repo: props.githubRepo,
+      branch: props.githubBranch ?? "main",
+      oauthToken: cdk.SecretValue.secretsManager(props.githubAccessTokenSecret),
+      output: sourceOutput,
+    });
+
+    // CodeBuild project to build the Docker image, push to ECR, and output an image definitions file
+    const buildProject = new codebuild.PipelineProject(
+      this,
+      `EcsBuildProject-${this.stackName}`,
+      {
+        environment: {
+          buildImage: codebuild.LinuxBuildImage.STANDARD_5_0,
+          privileged: true,
+        },
+        buildSpec: codebuild.BuildSpec.fromObject({
+          version: "0.2",
+          phases: {
+            pre_build: {
+              commands: [
+                "echo Logging in to Amazon ECR...",
+                "aws --version",
+                `REPOSITORY_URI=${repository.repositoryUri}`,
+                "aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $REPOSITORY_URI",
+                "COMMIT_HASH=$(echo $CODEBUILD_RESOLVED_SOURCE_VERSION | cut -c 1-7)",
+                "IMAGE_TAG=${COMMIT_HASH:=latest}",
+              ],
+            },
+            build: {
+              commands: [
+                "echo Building the Docker image...",
+                "docker build -t $REPOSITORY_URI:latest .",
+                "docker tag $REPOSITORY_URI:latest $REPOSITORY_URI:$IMAGE_TAG",
+              ],
+            },
+            post_build: {
+              commands: [
+                "echo Pushing the Docker images...",
+                "docker push $REPOSITORY_URI:latest",
+                "docker push $REPOSITORY_URI:$IMAGE_TAG",
+                "echo Writing image definitions file...",
+                `printf '[{"name":"${props.pipelineContainerName}","imageUri":"%s"}]' $REPOSITORY_URI:latest > imagedefinitions.json`,
+                "cat imagedefinitions.json",
+              ],
+            },
+          },
+          artifacts: {
+            files: "imagedefinitions.json",
+          },
+        }),
+      }
+    );
+
+    buildProject.role?.addManagedPolicy(
+      iam.ManagedPolicy.fromAwsManagedPolicyName(
+        "AmazonEC2ContainerRegistryFullAccess"
+      )
+    );
+
+    const buildAction = new codepipeline_actions.CodeBuildAction({
+      actionName: "Build_and_Push",
+      project: buildProject,
+      input: sourceOutput,
+      outputs: [pipelineBuildOutput],
+    });
+
+    // ECS Deploy Action to update the ECS service with the new image.
+    const deployAction = new codepipeline_actions.EcsDeployAction({
+      actionName: "Deploy_to_ECS",
+      service: sbService.service,
+      input: pipelineBuildOutput,
+    });
+
+    new codepipeline.Pipeline(this, `Pipeline-${props.stackName}`, {
+      pipelineName: props.pipelineName ?? `Pipeline-${props.stackName}`,
+      stages: [
+        {
+          stageName: "Source",
+          actions: [sourceAction],
+        },
+        {
+          stageName: "Build",
+          actions: [buildAction],
+        },
+        {
+          stageName: "Deploy",
+          actions: [deployAction],
+        },
+      ],
     });
   }
 }
