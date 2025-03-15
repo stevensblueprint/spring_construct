@@ -198,7 +198,10 @@ export class SpringCdkTemplateStack extends cdk.Stack {
     });
 
     const image = ecs.ContainerImage.fromEcrRepository(repository, "latest");
-    const envFile = loadEnvFile();
+    const envFile = loadEnvFile(
+      pgInstance.instancePrivateDnsName,
+      props.dbName
+    );
     console.log("Environment Variables: ", envFile);
     const sbService = new ecsp.ApplicationLoadBalancedFargateService(
       this,
@@ -384,11 +387,15 @@ export class SpringCdkTemplateStack extends cdk.Stack {
   }
 }
 
-function loadEnvFile() {
+function loadEnvFile(privateDnsName: string, dbName: string) {
   const envFilePath = path.join(__dirname, "../config/.env");
   const result = dotenv.config({ path: envFilePath });
   if (result.error) {
     throw result.error;
   }
-  return result.parsed || {};
+  const envConfig = result.parsed || {};
+  envConfig[
+    "SPRING_DATASOURCE_URL"
+  ] = `jdbc:postgresql://${privateDnsName}:5432/${dbName}`;
+  return envConfig;
 }
