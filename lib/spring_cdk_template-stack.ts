@@ -56,7 +56,19 @@ export class SpringCdkTemplateStack extends cdk.Stack {
     // ----- VPC -----
     const vpc = new ec2.Vpc(this, props.vpcName, {
       maxAzs: 2,
-      natGateways: 1,
+      natGateways: 0,
+      subnetConfiguration: [
+        {
+          name: "public",
+          subnetType: ec2.SubnetType.PUBLIC,
+          cidrMask: 24,
+        },
+        {
+          name: "isolated",
+          subnetType: ec2.SubnetType.PRIVATE_ISOLATED,
+          cidrMask: 24,
+        },
+      ],
     });
 
     // ----- PostgreSQL Security Group -----
@@ -144,6 +156,40 @@ export class SpringCdkTemplateStack extends cdk.Stack {
       "systemctl restart postgresql"
     );
 
+    // ----- VPOC Endpoints -----
+    const s3Endpoint = new ec2.GatewayVpcEndpoint(this, "S3Endpoint", {
+      vpc,
+      service: ec2.GatewayVpcEndpointAwsService.S3,
+    });
+
+    new ec2.InterfaceVpcEndpoint(this, "EcrDockerEndpoint", {
+      vpc,
+      service: ec2.InterfaceVpcEndpointAwsService.ECR_DOCKER,
+      privateDnsEnabled: true,
+      subnets: { subnetType: ec2.SubnetType.PRIVATE_ISOLATED },
+    });
+
+    new ec2.InterfaceVpcEndpoint(this, "EcrEndpoint", {
+      vpc,
+      service: ec2.InterfaceVpcEndpointAwsService.ECR,
+      privateDnsEnabled: true,
+      subnets: { subnetType: ec2.SubnetType.PRIVATE_ISOLATED },
+    });
+
+    new ec2.InterfaceVpcEndpoint(this, "CloudWatchLogsEndpoint", {
+      vpc,
+      service: ec2.InterfaceVpcEndpointAwsService.CLOUDWATCH_LOGS,
+      privateDnsEnabled: true,
+      subnets: { subnetType: ec2.SubnetType.PRIVATE_ISOLATED },
+    });
+
+    new ec2.InterfaceVpcEndpoint(this, "SecretsManagerEndpoint", {
+      vpc,
+      service: ec2.InterfaceVpcEndpointAwsService.SECRETS_MANAGER,
+      privateDnsEnabled: true,
+      subnets: { subnetType: ec2.SubnetType.PRIVATE_ISOLATED },
+    });
+
     // ----- ECS Cluster & Service -----
     const cluster = new ecs.Cluster(this, `Cluster-${props.stackName}`, {
       vpc,
@@ -186,6 +232,11 @@ export class SpringCdkTemplateStack extends cdk.Stack {
         },
         circuitBreaker: { rollback: true },
         healthCheckGracePeriod: cdk.Duration.seconds(200),
+        publicLoadBalancer: true,
+        assignPublicIp: true,
+        taskSubnets: {
+          subnetType: ec2.SubnetType.PUBLIC,
+        },
       }
     );
 
@@ -210,6 +261,16 @@ export class SpringCdkTemplateStack extends cdk.Stack {
       iam.ManagedPolicy.fromAwsManagedPolicyName("SecretsManagerReadWrite")
     );
     scriptsBucket.grantRead(pgInstance.role);
+
+    sbService.taskDefinition.executionRole!.addManagedPolicy(
+      iam.ManagedPolicy.fromAwsManagedPolicyName(
+        "AmazonEC2ContainerRegistryFullAccess"
+      )
+    );
+
+    sbService.taskDefinition.executionRole!.addManagedPolicy(
+      iam.ManagedPolicy.fromAwsManagedPolicyName("SecretsManagerReadWrite")
+    );
 
     new cdk.CfnOutput(this, "InstancePublicIP", {
       value: pgInstance.instancePublicIp,
