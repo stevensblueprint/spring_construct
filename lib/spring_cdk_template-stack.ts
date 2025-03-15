@@ -10,6 +10,7 @@ import * as ecr from "aws-cdk-lib/aws-ecr";
 import * as codepipeline from "aws-cdk-lib/aws-codepipeline";
 import * as codepipeline_actions from "aws-cdk-lib/aws-codepipeline-actions";
 import * as codebuild from "aws-cdk-lib/aws-codebuild";
+import * as dotenv from "dotenv";
 import { Construct } from "constructs";
 import path = require("path");
 
@@ -197,7 +198,8 @@ export class SpringCdkTemplateStack extends cdk.Stack {
     });
 
     const image = ecs.ContainerImage.fromEcrRepository(repository, "latest");
-
+    const envFile = loadEnvFile();
+    console.log("Environment Variables: ", envFile);
     const sbService = new ecsp.ApplicationLoadBalancedFargateService(
       this,
       `Service-${props.stackName}`,
@@ -210,10 +212,7 @@ export class SpringCdkTemplateStack extends cdk.Stack {
           image: image,
           containerPort: 8080,
           containerName: props.pipelineContainerName,
-          environment: {
-            SPRING_DATASOURCE_URL: `jdbc:postgresql://${pgInstance.instancePrivateDnsName}:5432/${props.dbName}`,
-            SPRING_DATASOURCE_USERNAME: "postgres",
-          },
+          environment: envFile,
           secrets: {
             SPRING_DATASOURCE_PASSWORD: ecs.Secret.fromSecretsManager(
               pgDBcreds,
@@ -383,4 +382,13 @@ export class SpringCdkTemplateStack extends cdk.Stack {
       ],
     });
   }
+}
+
+function loadEnvFile() {
+  const envFilePath = path.join(__dirname, "../config/.env");
+  const result = dotenv.config({ path: envFilePath });
+  if (result.error) {
+    throw result.error;
+  }
+  return result.parsed || {};
 }
