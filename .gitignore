@@ -10,3 +10,6 @@ cdk.out
 config/config.yaml
 
 scripts/*
+*/.env
+*/config.yaml
+*/init.sql
