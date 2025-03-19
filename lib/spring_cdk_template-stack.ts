@@ -198,7 +198,7 @@ export class SpringCdkTemplateStack extends cdk.Stack {
         capacityProviderStrategies: [
           {
             capacityProvider: "FARGATE_SPOT",
-            weight: 1,
+            weight: 2,
           },
         ],
         deploymentController: {
@@ -211,8 +211,21 @@ export class SpringCdkTemplateStack extends cdk.Stack {
         taskSubnets: {
           subnetType: ec2.SubnetType.PUBLIC,
         },
+        minHealthyPercent: 50,
+        maxHealthyPercent: 200,
       }
     );
+
+    const scaling = sbService.service.autoScaleTaskCount({
+      minCapacity: 0,
+      maxCapacity: 2,
+    });
+
+    scaling.scaleOnCpuUtilization("CpuScaling", {
+      targetUtilizationPercent: 80,
+      scaleInCooldown: cdk.Duration.seconds(60),
+      scaleOutCooldown: cdk.Duration.seconds(60),
+    });
 
     sbService.targetGroup.configureHealthCheck({
       path: "/actuator/health",
@@ -245,6 +258,9 @@ export class SpringCdkTemplateStack extends cdk.Stack {
     sbService.taskDefinition.executionRole!.addManagedPolicy(
       iam.ManagedPolicy.fromAwsManagedPolicyName("SecretsManagerReadWrite")
     );
+
+    cdk.Tags.of(this).add("CostCenter", "AppName-Production");
+    cdk.Tags.of(this).add("Environment", "Production");
 
     new cdk.CfnOutput(this, "InstancePublicIP", {
       value: pgInstance.instancePublicIp,
