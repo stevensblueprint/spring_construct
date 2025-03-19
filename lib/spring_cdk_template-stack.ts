@@ -280,7 +280,10 @@ export class SpringCdkTemplateStack extends cdk.Stack {
         environment: {
           buildImage: codebuild.LinuxBuildImage.STANDARD_5_0,
           privileged: true,
+          computeType: codebuild.ComputeType.SMALL,
         },
+        timeout: cdk.Duration.minutes(10),
+        cache: codebuild.Cache.local(codebuild.LocalCacheMode.DOCKER_LAYER),
         buildSpec: codebuild.BuildSpec.fromObject({
           version: "0.2",
           phases: {
