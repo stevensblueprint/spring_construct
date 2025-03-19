@@ -56,17 +56,12 @@ export class SpringCdkTemplateStack extends cdk.Stack {
 
     // ----- VPC -----
     const vpc = new ec2.Vpc(this, props.vpcName, {
-      maxAzs: 2,
+      maxAzs: 1,
       natGateways: 0,
       subnetConfiguration: [
         {
           name: "public",
           subnetType: ec2.SubnetType.PUBLIC,
-          cidrMask: 24,
-        },
-        {
-          name: "isolated",
-          subnetType: ec2.SubnetType.PRIVATE_ISOLATED,
           cidrMask: 24,
         },
       ],
@@ -94,7 +89,7 @@ export class SpringCdkTemplateStack extends cdk.Stack {
     // ----- PostgreSQL Credentials (Secrets Manager) -----
     const pgDBcreds = new secretsmanager.Secret(
       this,
-      `pgCres${props.stackName}`,
+      `pgCred${props.stackName}`,
       {
         generateSecretString: {
           secretStringTemplate: JSON.stringify({ username: "postgres" }),
@@ -156,40 +151,6 @@ export class SpringCdkTemplateStack extends cdk.Stack {
       `sudo -u postgres psql -c "ALTER USER postgres WITH PASSWORD '$PGPASSWORD';"`,
       "systemctl restart postgresql"
     );
-
-    // ----- VPOC Endpoints -----
-    const s3Endpoint = new ec2.GatewayVpcEndpoint(this, "S3Endpoint", {
-      vpc,
-      service: ec2.GatewayVpcEndpointAwsService.S3,
-    });
-
-    new ec2.InterfaceVpcEndpoint(this, "EcrDockerEndpoint", {
-      vpc,
-      service: ec2.InterfaceVpcEndpointAwsService.ECR_DOCKER,
-      privateDnsEnabled: true,
-      subnets: { subnetType: ec2.SubnetType.PRIVATE_ISOLATED },
-    });
-
-    new ec2.InterfaceVpcEndpoint(this, "EcrEndpoint", {
-      vpc,
-      service: ec2.InterfaceVpcEndpointAwsService.ECR,
-      privateDnsEnabled: true,
-      subnets: { subnetType: ec2.SubnetType.PRIVATE_ISOLATED },
-    });
-
-    new ec2.InterfaceVpcEndpoint(this, "CloudWatchLogsEndpoint", {
-      vpc,
-      service: ec2.InterfaceVpcEndpointAwsService.CLOUDWATCH_LOGS,
-      privateDnsEnabled: true,
-      subnets: { subnetType: ec2.SubnetType.PRIVATE_ISOLATED },
-    });
-
-    new ec2.InterfaceVpcEndpoint(this, "SecretsManagerEndpoint", {
-      vpc,
-      service: ec2.InterfaceVpcEndpointAwsService.SECRETS_MANAGER,
-      privateDnsEnabled: true,
-      subnets: { subnetType: ec2.SubnetType.PRIVATE_ISOLATED },
-    });
 
     // ----- ECS Cluster & Service -----
     const cluster = new ecs.Cluster(this, `Cluster-${props.stackName}`, {
