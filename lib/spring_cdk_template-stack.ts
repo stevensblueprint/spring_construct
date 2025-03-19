@@ -47,6 +47,17 @@ export class SpringCdkTemplateStack extends cdk.Stack {
     const scriptsBucket = new s3.Bucket(this, "DatabaseScriptsBucket", {
       removalPolicy: cdk.RemovalPolicy.DESTROY,
       autoDeleteObjects: true,
+      lifecycleRules: [
+        {
+          expiration: cdk.Duration.hours(1),
+          transitions: [
+            {
+              storageClass: s3.StorageClass.INFREQUENT_ACCESS,
+              transitionAfter: cdk.Duration.days(1),
+            },
+          ],
+        },
+      ],
     });
 
     new s3deploy.BucketDeployment(this, "DeployScripts", {
