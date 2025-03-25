@@ -49,11 +49,11 @@ export class SpringCdkTemplateStack extends cdk.Stack {
       autoDeleteObjects: true,
       lifecycleRules: [
         {
-          expiration: cdk.Duration.days(1),
+          expiration: cdk.Duration.days(31),
           transitions: [
             {
               storageClass: s3.StorageClass.INFREQUENT_ACCESS,
-              transitionAfter: cdk.Duration.days(1),
+              transitionAfter: cdk.Duration.days(30),
             },
           ],
         },
@@ -67,7 +67,7 @@ export class SpringCdkTemplateStack extends cdk.Stack {
 
     // ----- VPC -----
     const vpc = new ec2.Vpc(this, props.vpcName, {
-      maxAzs: 1,
+      maxAzs: 2,
       natGateways: 0,
       subnetConfiguration: [
         {
