@@ -49,7 +49,7 @@ export class SpringCdkTemplateStack extends cdk.Stack {
       autoDeleteObjects: true,
       lifecycleRules: [
         {
-          expiration: cdk.Duration.hours(1),
+          expiration: cdk.Duration.days(1),
           transitions: [
             {
               storageClass: s3.StorageClass.INFREQUENT_ACCESS,
