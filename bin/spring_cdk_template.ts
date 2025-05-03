@@ -13,6 +13,10 @@ envConfigs.forEach((envConfig) => {
   console.log(`Creating stack: ${stackName}`);
   new SpringCdkTemplateStack(app, stackName, {
     ...envConfig,
+    env: {
+      account: envConfig.account,
+      region: envConfig.region,
+    },
     description: `Stack ${envConfig.stackName}`,
   });
 });
