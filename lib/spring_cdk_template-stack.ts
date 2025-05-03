@@ -10,6 +10,9 @@ import * as ecr from "aws-cdk-lib/aws-ecr";
 import * as codepipeline from "aws-cdk-lib/aws-codepipeline";
 import * as codepipeline_actions from "aws-cdk-lib/aws-codepipeline-actions";
 import * as codebuild from "aws-cdk-lib/aws-codebuild";
+import * as route53 from "aws-cdk-lib/aws-route53";
+import * as acm from "aws-cdk-lib/aws-certificatemanager";
+import * as targets from "aws-cdk-lib/aws-route53-targets";
 import * as dotenv from "dotenv";
 import { Construct } from "constructs";
 import path = require("path");
@@ -28,6 +31,9 @@ interface SpringCdkTemplateStackProps extends cdk.StackProps {
   githubAccessTokenSecret: string;
   pipelineContainerName: string;
   pipelineName?: string;
+  domainName: string;
+  subdomainName: string;
+  certificateArn: string;
 }
 export class SpringCdkTemplateStack extends cdk.Stack {
   constructor(
@@ -169,6 +175,16 @@ export class SpringCdkTemplateStack extends cdk.Stack {
       enableFargateCapacityProviders: true,
     });
 
+    const hostedZone = route53.HostedZone.fromLookup(this, "HostedZone", {
+      domainName: props.domainName,
+    });
+
+    const certificate = acm.Certificate.fromCertificateArn(
+      this,
+      "Certificate",
+      props.certificateArn
+    );
+
     const image = ecs.ContainerImage.fromEcrRepository(repository, "latest");
     const envFile = loadEnvFile(
       pgInstance.instancePrivateDnsName,
@@ -213,8 +229,20 @@ export class SpringCdkTemplateStack extends cdk.Stack {
         },
         minHealthyPercent: 50,
         maxHealthyPercent: 200,
+        domainName: `${props.subdomainName}.${props.domainName}`,
+        domainZone: hostedZone,
+        certificate: certificate,
+        redirectHTTP: true,
       }
     );
+
+    new route53.ARecord(this, "AliasRecord", {
+      zone: hostedZone,
+      recordName: props.subdomainName,
+      target: route53.RecordTarget.fromAlias(
+        new targets.LoadBalancerTarget(sbService.loadBalancer)
+      ),
+    });
 
     const scaling = sbService.service.autoScaleTaskCount({
       minCapacity: 0,

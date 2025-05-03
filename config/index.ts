@@ -23,6 +23,9 @@ function getEnvironmentConfig(environmentName: string) {
     githubAccessTokenSecret: environment.githubAccessTokenSecret,
     pipelineContainerName: environment.pipelineContainerName,
     pipelineName: environment.pipelineName,
+    domainName: environment.domainName,
+    subdomainName: environment.subdomainName,
+    certificateArn: environment.certificateArn,
   };
 }
 
