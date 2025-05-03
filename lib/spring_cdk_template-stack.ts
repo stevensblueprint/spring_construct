@@ -302,6 +302,10 @@ export class SpringCdkTemplateStack extends cdk.Stack {
       value: repository.repositoryUri,
     });
 
+    new cdk.CfnOutput(this, "ApplicationURL", {
+      value: `https://${props.subdomainName}.${props.domainName}`,
+    });
+
     // ----- CodePipeline for Continuous Deployment -----
     const sourceOutput = new codepipeline.Artifact();
     const pipelineBuildOutput = new codepipeline.Artifact();
