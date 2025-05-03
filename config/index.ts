@@ -9,6 +9,7 @@ const config = parse(readConfigFile);
 function getEnvironmentConfig(environmentName: string) {
   const environment = config[environmentName];
   return {
+    account: environment.account,
     shouldDeploy: environment.shouldDeploy,
     stackName: environment.stackName,
     vpcName: environment.vpcName,
