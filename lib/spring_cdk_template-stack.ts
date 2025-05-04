@@ -12,7 +12,6 @@ import * as codepipeline_actions from "aws-cdk-lib/aws-codepipeline-actions";
 import * as codebuild from "aws-cdk-lib/aws-codebuild";
 import * as route53 from "aws-cdk-lib/aws-route53";
 import * as acm from "aws-cdk-lib/aws-certificatemanager";
-import * as targets from "aws-cdk-lib/aws-route53-targets";
 import * as dotenv from "dotenv";
 import { Construct } from "constructs";
 import path = require("path");
@@ -312,6 +311,18 @@ export class SpringCdkTemplateStack extends cdk.Stack {
       output: sourceOutput,
     });
 
+    const cacheBucket = new s3.Bucket(this, `BuildCache-${props.stackName}`, {
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+      autoDeleteObjects: true,
+      lifecycleRules: [
+        {
+          expiration: cdk.Duration.days(30), // Expire cache items after 30 days
+          abortIncompleteMultipartUploadAfter: cdk.Duration.days(7),
+        },
+      ],
+      encryption: s3.BucketEncryption.S3_MANAGED,
+    });
+
     // CodeBuild project to build the Docker image, push to ECR, and output an image definitions file
     const buildProject = new codebuild.PipelineProject(
       this,
@@ -323,9 +334,14 @@ export class SpringCdkTemplateStack extends cdk.Stack {
           computeType: codebuild.ComputeType.SMALL,
         },
         timeout: cdk.Duration.minutes(10),
-        cache: codebuild.Cache.local(codebuild.LocalCacheMode.DOCKER_LAYER),
+        cache: codebuild.Cache.bucket(cacheBucket, {
+          prefix: "docker-cache",
+        }),
         buildSpec: codebuild.BuildSpec.fromObject({
           version: "0.2",
+          cache: {
+            paths: ["/root/.m2/**/*"],
+          },
           phases: {
             pre_build: {
               commands: [
@@ -335,12 +351,13 @@ export class SpringCdkTemplateStack extends cdk.Stack {
                 "aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $REPOSITORY_URI",
                 "COMMIT_HASH=$(echo $CODEBUILD_RESOLVED_SOURCE_VERSION | cut -c 1-7)",
                 "IMAGE_TAG=${COMMIT_HASH:=latest}",
+                "docker pull $REPOSITORY_URI:latest || true",
               ],
             },
             build: {
               commands: [
                 "echo Building the Docker image...",
-                "docker build -t $REPOSITORY_URI:latest .",
+                "docker build --cache-from $REPOSITORY_URI:latest --build-arg BUILDKIT_INLINE_CACHE=1 -t $REPOSITORY_URI:latest .",
                 "docker tag $REPOSITORY_URI:latest $REPOSITORY_URI:$IMAGE_TAG",
               ],
             },
