@@ -1,4 +1,5 @@
 dev:
+  account: "" # AWS account ID
   shouldDeploy: false # Should the stack be deployed
   stackName: "" # Name of the stack
   vpcName: "" # Name of the VPC
@@ -13,8 +14,13 @@ dev:
   githubAccessTokenSecret: "" # Secret name of the github access token
   pipelineContainerName: "" # Name of the container in the pipeline
   pipelineName: "" # Name of the pipeline
+  domainName: "" # Domain name for the application
+  subdomainName: "" # Subdomain name for the application
+  certificateArn: "" # ARN of the certificate for the domain
+
 
 prod:
+  account: "" # AWS account ID
   shouldDeploy: true # Should the stack be deployed
   stackName: "" # Name of the stack
   vpcName: "" # Name of the VPC

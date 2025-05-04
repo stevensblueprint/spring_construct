@@ -236,14 +236,6 @@ export class SpringCdkTemplateStack extends cdk.Stack {
       }
     );
 
-    new route53.ARecord(this, "AliasRecord", {
-      zone: hostedZone,
-      recordName: props.subdomainName,
-      target: route53.RecordTarget.fromAlias(
-        new targets.LoadBalancerTarget(sbService.loadBalancer)
-      ),
-    });
-
     const scaling = sbService.service.autoScaleTaskCount({
       minCapacity: 0,
       maxCapacity: 2,
