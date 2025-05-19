@@ -17,7 +17,7 @@ dev:
   domainName: "" # Domain name for the application
   subdomainName: "" # Subdomain name for the application
   certificateArn: "" # ARN of the certificate for the domain
-  discordWebhookURL: # Discord webhook URL (optional)
+  discordWebhookURL: "" # Discord webhook URL (optional)
 
 prod:
   account: "" # AWS account ID
@@ -38,4 +38,4 @@ prod:
   domainName: "" # Domain name for the application
   subdomainName: "" # Subdomain name for the application
   certificateArn: "" # ARN of the certificate for the domain
-  discordWebhookURL: # Discord webhook URL (optional)
+  discordWebhookURL: "" # Discord webhook URL (optional)
