@@ -346,32 +346,41 @@ export class SpringCdkTemplateStack extends cdk.Stack {
             paths: ["/root/.m2/**/*"],
           },
           phases: {
+            install: {
+              commands: [
+                "echo Installing Corretto 17 & Maven (if needed)...",
+                "yum install -y java-17-amazon-corretto-devel maven || true",
+              ],
+            },
             pre_build: {
               commands: [
-                "echo Logging in to Amazon ECR...",
-                "aws --version",
+                "echo Logging in to ECR...",
                 `REPOSITORY_URI=${repository.repositoryUri}`,
                 "aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $REPOSITORY_URI",
-                'echo "Authenticating with Amazon ECR Public Gallery"',
                 "aws ecr-public get-login-password --region us-east-1 | docker login --username AWS --password-stdin public.ecr.aws",
                 "COMMIT_HASH=$(echo $CODEBUILD_RESOLVED_SOURCE_VERSION | cut -c 1-7)",
                 "IMAGE_TAG=${COMMIT_HASH:=latest}",
-                "docker pull $REPOSITORY_URI:latest || true",
+                "echo Running Maven build...",
+                "mvn dependency:go-offline -B",
+                "mvn clean package -DskipTests -B",
               ],
             },
             build: {
               commands: [
-                "echo Building the Docker image...",
-                "docker build --cache-from $REPOSITORY_URI:latest --build-arg BUILDKIT_INLINE_CACHE=1 -t $REPOSITORY_URI:latest .",
+                "echo Preparing Docker context...",
+                "cp target/orservice-0.0.1-SNAPSHOT.jar app.jar",
+                "echo Building Docker image...",
+                "docker pull $REPOSITORY_URI:latest || true",
+                "docker build --cache-from $REPOSITORY_URI:latest -t $REPOSITORY_URI:latest .",
                 "docker tag $REPOSITORY_URI:latest $REPOSITORY_URI:$IMAGE_TAG",
               ],
             },
             post_build: {
               commands: [
-                "echo Pushing the Docker images...",
+                "echo Pushing images...",
                 "docker push $REPOSITORY_URI:latest",
                 "docker push $REPOSITORY_URI:$IMAGE_TAG",
-                "echo Writing image definitions file...",
+                "echo Writing image definition for ECS...",
                 `printf '[{"name":"${props.pipelineContainerName}","imageUri":"%s"}]' $REPOSITORY_URI:latest > imagedefinitions.json`,
                 "cat imagedefinitions.json",
               ],
