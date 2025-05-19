@@ -458,9 +458,9 @@ export class SpringCdkTemplateStack extends cdk.Stack {
     const webhookLambda = new lambda.Function(this, "WebhookLambda", {
       runtime: lambda.Runtime.PYTHON_3_10,
       code: lambda.Code.fromAsset(
-        path.join(__dirname, "../functions/pipeline-lambda")
+        path.join(__dirname, "../functions/pipeline-lambda/src")
       ),
-      handler: "src.handler",
+      handler: "main.handler",
       environment: {
         PIPELINE_NAME: pipeline.pipelineName,
         DISCORD_WEBHOOKS_URL: props.discordWebhookURL,
