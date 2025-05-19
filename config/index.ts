@@ -27,6 +27,7 @@ function getEnvironmentConfig(environmentName: string) {
     domainName: environment.domainName,
     subdomainName: environment.subdomainName,
     certificateArn: environment.certificateArn,
+    discordWebhookURL: environment.discordWebhookURL,
   };
 }
 

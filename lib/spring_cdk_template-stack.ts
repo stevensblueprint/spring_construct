@@ -12,6 +12,8 @@ import * as codepipeline_actions from "aws-cdk-lib/aws-codepipeline-actions";
 import * as codebuild from "aws-cdk-lib/aws-codebuild";
 import * as route53 from "aws-cdk-lib/aws-route53";
 import * as acm from "aws-cdk-lib/aws-certificatemanager";
+import * as lambda from "aws-cdk-lib/aws-lambda";
+import * as targets from "aws-cdk-lib/aws-events-targets";
 import * as dotenv from "dotenv";
 import { Construct } from "constructs";
 import path = require("path");
@@ -33,6 +35,7 @@ interface SpringCdkTemplateStackProps extends cdk.StackProps {
   domainName: string;
   subdomainName: string;
   certificateArn: string;
+  discordWebhookURL: string;
 }
 export class SpringCdkTemplateStack extends cdk.Stack {
   constructor(
@@ -399,22 +402,55 @@ export class SpringCdkTemplateStack extends cdk.Stack {
       input: pipelineBuildOutput,
     });
 
-    new codepipeline.Pipeline(this, `Pipeline-${props.stackName}`, {
-      pipelineName: props.pipelineName ?? `Pipeline-${props.stackName}`,
-      stages: [
-        {
-          stageName: "Source",
-          actions: [sourceAction],
-        },
-        {
-          stageName: "Build",
-          actions: [buildAction],
-        },
-        {
-          stageName: "Deploy",
-          actions: [deployAction],
-        },
-      ],
+    const pipeline = new codepipeline.Pipeline(
+      this,
+      `Pipeline-${props.stackName}`,
+      {
+        pipelineName: props.pipelineName ?? `Pipeline-${props.stackName}`,
+        stages: [
+          {
+            stageName: "Source",
+            actions: [sourceAction],
+          },
+          {
+            stageName: "Build",
+            actions: [buildAction],
+          },
+          {
+            stageName: "Deploy",
+            actions: [deployAction],
+          },
+        ],
+      }
+    );
+
+    this._addWebhookLambda(pipeline, props);
+  }
+
+  private _addWebhookLambda(
+    pipeline: codepipeline.Pipeline,
+    props: SpringCdkTemplateStackProps
+  ) {
+    const webhookLambda = new lambda.Function(this, "WebhookLambda", {
+      runtime: lambda.Runtime.NODEJS_18_X,
+      code: lambda.Code.fromAsset(
+        path.join(__dirname, "../functions/pipeline-lambda")
+      ),
+      handler: "webhook.handler",
+      environment: {
+        GITHUB_TOKEN: cdk.SecretValue.secretsManager(
+          props.githubAccessTokenSecret
+        ).toString(),
+        GITHUB_OWNER: props.githubOwner,
+        GITHUB_REPO: props.githubRepo,
+        PIPELINE_NAME: pipeline.pipelineName,
+        DISCORD_WEBHOOKS_URL: props.discordWebhookURL,
+      },
+    });
+
+    pipeline.onStateChange("PipelineStateChange", {
+      target: new targets.LambdaFunction(webhookLambda),
+      description: "Lambda function to handle pipeline state changes",
     });
   }
 }
