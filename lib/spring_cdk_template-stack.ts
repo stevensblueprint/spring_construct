@@ -456,14 +456,28 @@ export class SpringCdkTemplateStack extends cdk.Stack {
       return;
     const webhookLambda = new lambda.Function(this, "WebhookLambda", {
       runtime: lambda.Runtime.PYTHON_3_10,
+      handler: "src.main.handler",
       code: lambda.Code.fromAsset(
-        path.join(__dirname, "../functions/pipeline-lambda/src")
+        path.join(__dirname, "../functions/pipeline-lambda"),
+        {
+          bundling: {
+            image: lambda.Runtime.PYTHON_3_10.bundlingImage,
+            command: [
+              "bash",
+              "-c",
+              "pip install -r src/requirements.txt -t /asset-output --platform manylinux2014_x86_64 --only-binary=:all: && cp -au . /asset-output",
+            ],
+          },
+        }
       ),
-      handler: "main.handler",
+      timeout: cdk.Duration.seconds(30),
+      memorySize: 128,
       environment: {
         PIPELINE_NAME: pipeline.pipelineName,
         DISCORD_WEBHOOKS_URL: props.discordWebhookURL,
       },
+      description:
+        "Lambda function to send Discord notifications on pipeline state changes",
     });
 
     pipeline.onStateChange("PipelineStateChange", {
