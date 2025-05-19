@@ -347,10 +347,9 @@ export class SpringCdkTemplateStack extends cdk.Stack {
           },
           phases: {
             install: {
-              commands: [
-                "echo Installing Corretto 17 & Maven (if needed)...",
-                "yum install -y java-17-amazon-corretto-devel maven || true",
-              ],
+              "runtime-versions": {
+                java: "corretto17",
+              },
             },
             pre_build: {
               commands: [
