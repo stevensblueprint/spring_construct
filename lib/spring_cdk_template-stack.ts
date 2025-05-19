@@ -352,6 +352,8 @@ export class SpringCdkTemplateStack extends cdk.Stack {
                 "aws --version",
                 `REPOSITORY_URI=${repository.repositoryUri}`,
                 "aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $REPOSITORY_URI",
+                'echo "Authenticating with Amazon ECR Public Gallery"',
+                "aws ecr-public get-login-password --region us-east-1 | docker login --username AWS --password-stdin public.ecr.aws",
                 "COMMIT_HASH=$(echo $CODEBUILD_RESOLVED_SOURCE_VERSION | cut -c 1-7)",
                 "IMAGE_TAG=${COMMIT_HASH:=latest}",
                 "docker pull $REPOSITORY_URI:latest || true",
@@ -376,10 +378,21 @@ export class SpringCdkTemplateStack extends cdk.Stack {
             },
           },
           artifacts: {
+            "base-directory": ".",
             files: "imagedefinitions.json",
           },
         }),
       }
+    );
+
+    buildProject.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: [
+          "ecr-public:GetAuthorizationToken",
+          "sts:GetServiceBearerToken",
+        ],
+        resources: ["*"],
+      })
     );
 
     buildProject.role?.addManagedPolicy(
