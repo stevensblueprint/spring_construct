@@ -431,6 +431,8 @@ export class SpringCdkTemplateStack extends cdk.Stack {
     pipeline: codepipeline.Pipeline,
     props: SpringCdkTemplateStackProps
   ) {
+    if (props.discordWebhookURL === "" || props.discordWebhookURL === undefined)
+      return;
     const webhookLambda = new lambda.Function(this, "WebhookLambda", {
       runtime: lambda.Runtime.NODEJS_18_X,
       code: lambda.Code.fromAsset(
