@@ -440,11 +440,6 @@ export class SpringCdkTemplateStack extends cdk.Stack {
       ),
       handler: "webhook.handler",
       environment: {
-        GITHUB_TOKEN: cdk.SecretValue.secretsManager(
-          props.githubAccessTokenSecret
-        ).toString(),
-        GITHUB_OWNER: props.githubOwner,
-        GITHUB_REPO: props.githubRepo,
         PIPELINE_NAME: pipeline.pipelineName,
         DISCORD_WEBHOOKS_URL: props.discordWebhookURL,
       },
